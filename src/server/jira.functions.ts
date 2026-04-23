@@ -144,9 +144,17 @@ export const getProblemTickets = createServerFn({ method: "GET" }).handler(async
 
 // ─── AI ENDPOINTS ──────────────────────────────────────────────────────────
 
+export type RewriteResult = {
+  newTitle: string;
+  newDescription: string;
+  acceptanceCriteria: string[];
+  suggestedLabels: string[];
+  reasoning: string;
+};
+
 export const rewriteTicket = createServerFn({ method: "POST" })
   .inputValidator((data: { key: string; summary: string; description: string | null }) => data)
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<{ result: RewriteResult | null; error: string | null }> => {
     try {
       const sys = `You are a senior maintenance engineer rewriting Jira tickets for an industrial machine maintenance team (machines M01-M07). 
 For each ticket, produce a clean, professional ticket with:
@@ -200,16 +208,23 @@ Rewrite it into a professional ticket.`;
       if (!result.toolCall) {
         return { result: null, error: "AI did not return structured result" };
       }
-      return { result: result.toolCall.args as Record<string, unknown>, error: null };
+      return { result: result.toolCall.args as RewriteResult, error: null };
     } catch (e) {
       const msg = e instanceof Error ? e.message : "AI call failed";
       return { result: null, error: msg };
     }
   });
 
+export type ClassifyResult = {
+  suggestedType: "Corrective" | "Preventive";
+  confidence: number;
+  reasoning: string;
+  needsReclassification: boolean;
+};
+
 export const classifyTicket = createServerFn({ method: "POST" })
   .inputValidator((data: { key: string; summary: string; description: string | null; currentType: string }) => data)
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<{ result: ClassifyResult | null; error: string | null }> => {
     try {
       const sys = `You classify maintenance tickets for an industrial team. Types:
 - Corrective: fixing something broken/failed (failures, breakdowns, errors observed)
@@ -246,7 +261,7 @@ Respond ONLY by calling classify_ticket.`;
         tool_choice: { type: "function", function: { name: "classify_ticket" } },
       });
       if (!result.toolCall) return { result: null, error: "AI did not return result" };
-      return { result: result.toolCall.args as Record<string, unknown>, error: null };
+      return { result: result.toolCall.args as ClassifyResult, error: null };
     } catch (e) {
       const msg = e instanceof Error ? e.message : "AI call failed";
       return { result: null, error: msg };
