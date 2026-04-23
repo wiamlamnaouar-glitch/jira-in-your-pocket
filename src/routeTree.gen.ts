@@ -9,50 +9,225 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
+import { Route as AppRouteImport } from './routes/_app'
+import { Route as AppIndexRouteImport } from './routes/_app.index'
+import { Route as AppTeamRouteImport } from './routes/_app.team'
+import { Route as AppRiskRouteImport } from './routes/_app.risk'
+import { Route as AppRewriterRouteImport } from './routes/_app.rewriter'
+import { Route as AppDuplicatesRouteImport } from './routes/_app.duplicates'
+import { Route as AppChatRouteImport } from './routes/_app.chat'
+import { Route as AppBoardRouteImport } from './routes/_app.board'
+import { Route as AppBacklogRouteImport } from './routes/_app.backlog'
 
-const IndexRoute = IndexRouteImport.update({
+const AppRoute = AppRouteImport.update({
+  id: '/_app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRoute,
+} as any)
+const AppTeamRoute = AppTeamRouteImport.update({
+  id: '/team',
+  path: '/team',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppRiskRoute = AppRiskRouteImport.update({
+  id: '/risk',
+  path: '/risk',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppRewriterRoute = AppRewriterRouteImport.update({
+  id: '/rewriter',
+  path: '/rewriter',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppDuplicatesRoute = AppDuplicatesRouteImport.update({
+  id: '/duplicates',
+  path: '/duplicates',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppChatRoute = AppChatRouteImport.update({
+  id: '/chat',
+  path: '/chat',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppBoardRoute = AppBoardRouteImport.update({
+  id: '/board',
+  path: '/board',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppBacklogRoute = AppBacklogRouteImport.update({
+  id: '/backlog',
+  path: '/backlog',
+  getParentRoute: () => AppRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
+  '/': typeof AppIndexRoute
+  '/backlog': typeof AppBacklogRoute
+  '/board': typeof AppBoardRoute
+  '/chat': typeof AppChatRoute
+  '/duplicates': typeof AppDuplicatesRoute
+  '/rewriter': typeof AppRewriterRoute
+  '/risk': typeof AppRiskRoute
+  '/team': typeof AppTeamRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
+  '/backlog': typeof AppBacklogRoute
+  '/board': typeof AppBoardRoute
+  '/chat': typeof AppChatRoute
+  '/duplicates': typeof AppDuplicatesRoute
+  '/rewriter': typeof AppRewriterRoute
+  '/risk': typeof AppRiskRoute
+  '/team': typeof AppTeamRoute
+  '/': typeof AppIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
+  '/_app': typeof AppRouteWithChildren
+  '/_app/backlog': typeof AppBacklogRoute
+  '/_app/board': typeof AppBoardRoute
+  '/_app/chat': typeof AppChatRoute
+  '/_app/duplicates': typeof AppDuplicatesRoute
+  '/_app/rewriter': typeof AppRewriterRoute
+  '/_app/risk': typeof AppRiskRoute
+  '/_app/team': typeof AppTeamRoute
+  '/_app/': typeof AppIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/backlog'
+    | '/board'
+    | '/chat'
+    | '/duplicates'
+    | '/rewriter'
+    | '/risk'
+    | '/team'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/backlog'
+    | '/board'
+    | '/chat'
+    | '/duplicates'
+    | '/rewriter'
+    | '/risk'
+    | '/team'
+    | '/'
+  id:
+    | '__root__'
+    | '/_app'
+    | '/_app/backlog'
+    | '/_app/board'
+    | '/_app/chat'
+    | '/_app/duplicates'
+    | '/_app/rewriter'
+    | '/_app/risk'
+    | '/_app/team'
+    | '/_app/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
+  AppRoute: typeof AppRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
+    '/_app': {
+      id: '/_app'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_app/': {
+      id: '/_app/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/team': {
+      id: '/_app/team'
+      path: '/team'
+      fullPath: '/team'
+      preLoaderRoute: typeof AppTeamRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/risk': {
+      id: '/_app/risk'
+      path: '/risk'
+      fullPath: '/risk'
+      preLoaderRoute: typeof AppRiskRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/rewriter': {
+      id: '/_app/rewriter'
+      path: '/rewriter'
+      fullPath: '/rewriter'
+      preLoaderRoute: typeof AppRewriterRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/duplicates': {
+      id: '/_app/duplicates'
+      path: '/duplicates'
+      fullPath: '/duplicates'
+      preLoaderRoute: typeof AppDuplicatesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/chat': {
+      id: '/_app/chat'
+      path: '/chat'
+      fullPath: '/chat'
+      preLoaderRoute: typeof AppChatRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/board': {
+      id: '/_app/board'
+      path: '/board'
+      fullPath: '/board'
+      preLoaderRoute: typeof AppBoardRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/backlog': {
+      id: '/_app/backlog'
+      path: '/backlog'
+      fullPath: '/backlog'
+      preLoaderRoute: typeof AppBacklogRouteImport
+      parentRoute: typeof AppRoute
     }
   }
 }
 
+interface AppRouteChildren {
+  AppBacklogRoute: typeof AppBacklogRoute
+  AppBoardRoute: typeof AppBoardRoute
+  AppChatRoute: typeof AppChatRoute
+  AppDuplicatesRoute: typeof AppDuplicatesRoute
+  AppRewriterRoute: typeof AppRewriterRoute
+  AppRiskRoute: typeof AppRiskRoute
+  AppTeamRoute: typeof AppTeamRoute
+  AppIndexRoute: typeof AppIndexRoute
+}
+
+const AppRouteChildren: AppRouteChildren = {
+  AppBacklogRoute: AppBacklogRoute,
+  AppBoardRoute: AppBoardRoute,
+  AppChatRoute: AppChatRoute,
+  AppDuplicatesRoute: AppDuplicatesRoute,
+  AppRewriterRoute: AppRewriterRoute,
+  AppRiskRoute: AppRiskRoute,
+  AppTeamRoute: AppTeamRoute,
+  AppIndexRoute: AppIndexRoute,
+}
+
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
+  AppRoute: AppRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
