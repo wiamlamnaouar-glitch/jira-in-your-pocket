@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import {
@@ -6,6 +6,7 @@ import {
   Copy,
   FileWarning,
   Layers,
+  Repeat,
   ShieldAlert,
   Sparkles,
   TrendingUp,
@@ -33,6 +34,15 @@ export const Route = createFileRoute("/_app/")({
 });
 
 type Data = Awaited<ReturnType<typeof getDashboardData>>;
+
+// Jira workflow statuses with palette
+const STATUS_COLORS: Record<string, string> = {
+  Open: "oklch(0.68 0.18 220)",
+  Scheduled: "oklch(0.72 0.14 280)",
+  "In Progress": "oklch(0.78 0.16 75)",
+  "In Review": "oklch(0.74 0.16 200)",
+  Closed: "oklch(0.72 0.18 155)",
+};
 
 function DashboardPage() {
   const [data, setData] = useState<Data | null>(null);
@@ -71,21 +81,30 @@ function DashboardPage() {
   }
 
   const h = data.health;
-  const statusData = [
-    { name: "À faire", value: data.statusBreakdown.new ?? 0, color: "oklch(0.68 0.18 220)" },
-    { name: "En cours", value: data.statusBreakdown.indeterminate ?? 0, color: "oklch(0.78 0.16 75)" },
-    { name: "Terminé", value: data.statusBreakdown.done ?? 0, color: "oklch(0.72 0.18 155)" },
-  ];
+  const isManager = data.viewer.role === "manager";
+
+  // Status distribution from real Jira status names
+  const statusData = Object.entries(data.statusBreakdown)
+    .map(([name, value]) => ({
+      name,
+      value,
+      color: STATUS_COLORS[name] ?? "oklch(0.65 0.05 260)",
+    }))
+    .filter((d) => d.value > 0);
 
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
       <header className="flex items-end justify-between gap-4 flex-wrap">
         <div>
-          <p className="text-xs uppercase tracking-widest text-muted-foreground">CMV · Maintenance Backlog</p>
-          <h1 className="text-3xl font-bold tracking-tight mt-1">Dashboard</h1>
+          <p className="text-xs uppercase tracking-widest text-muted-foreground">
+            CMV · Maintenance Backlog
+          </p>
+          <h1 className="text-3xl font-bold tracking-tight mt-1">
+            {isManager ? "Team Dashboard" : "My Dashboard"}
+          </h1>
         </div>
         <div className="text-xs text-muted-foreground">
-          {data.totalIssues} tickets · synced live from Jira
+          {data.totalIssues} {isManager ? "tickets across the team" : "tickets assigned to you"} · synced live from Jira
         </div>
       </header>
 
@@ -124,6 +143,38 @@ function DashboardPage() {
         </div>
       </div>
 
+      {/* Recurring problems — clickable, links to Backlog Health */}
+      <Link
+        to="/backlog"
+        search={{ tab: "recurring" }}
+        className="block rounded-xl border border-warning/40 bg-gradient-to-br from-warning/10 to-card p-5 hover:border-warning hover:shadow-[0_0_30px_-10px_oklch(0.78_0.16_75_/_0.6)] transition-all group"
+      >
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="size-12 rounded-lg bg-warning/20 text-warning flex items-center justify-center">
+              <Repeat className="size-6" />
+            </div>
+            <div>
+              <div className="text-xs uppercase tracking-wider text-warning/90 font-semibold">
+                Recurring problems detected
+              </div>
+              <div className="text-2xl font-bold tabular-nums mt-0.5">
+                {data.recurringCount}{" "}
+                <span className="text-sm font-normal text-muted-foreground">
+                  problem{data.recurringCount === 1 ? "" : "s"} · {data.recurringTotalTickets} repeated tickets
+                </span>
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">
+                Same issue reported multiple times on the same machine. Click to inspect.
+              </div>
+            </div>
+          </div>
+          <div className="text-xs text-warning group-hover:translate-x-1 transition-transform">
+            View →
+          </div>
+        </div>
+      </Link>
+
       {/* Charts row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card title="Status distribution" icon={Layers}>
@@ -144,7 +195,7 @@ function DashboardPage() {
               />
             </PieChart>
           </ResponsiveContainer>
-          <div className="flex justify-center gap-4 text-xs">
+          <div className="flex flex-wrap justify-center gap-3 text-xs">
             {statusData.map((d) => (
               <div key={d.name} className="flex items-center gap-1.5">
                 <span className="size-2.5 rounded-sm" style={{ background: d.color }} />
@@ -152,6 +203,9 @@ function DashboardPage() {
                 <span className="text-foreground font-medium">{d.value}</span>
               </div>
             ))}
+            {statusData.length === 0 && (
+              <span className="text-muted-foreground italic">No tickets</span>
+            )}
           </div>
         </Card>
 
@@ -195,6 +249,11 @@ function DashboardPage() {
               </div>
             );
           })}
+          {data.machineStats.length === 0 && (
+            <div className="col-span-full text-center text-sm text-muted-foreground italic py-6">
+              No tickets to show.
+            </div>
+          )}
         </div>
       </Card>
     </div>

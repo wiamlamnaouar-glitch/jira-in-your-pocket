@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { MessageSquare, Send, Loader2, Sparkles } from "lucide-react";
 import { askBacklog } from "@/server/jira.functions";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/_app/chat")({
   component: ChatPage,
@@ -11,18 +12,32 @@ export const Route = createFileRoute("/_app/chat")({
 
 type Msg = { role: "user" | "assistant"; content: string };
 
-const SUGGESTIONS = [
-  "What are our top 5 highest-priority open tickets?",
-  "Which machine has the most issues?",
-  "Who has the heaviest workload right now?",
-  "Show me tickets without descriptions",
+const MANAGER_SUGGESTIONS = [
+  "Which technician has the heaviest workload right now?",
+  "Which machine has the most open issues across the team?",
+  "List the top 5 highest-priority tickets that are still open.",
+  "Show tickets stuck In Progress for more than 3 days, by assignee.",
+  "Which technicians have tickets with vague or missing descriptions?",
+  "What recurring problems do we see this month, grouped by machine?",
+];
+
+const TECHNICIAN_SUGGESTIONS = [
+  "What are my highest-priority open tickets?",
+  "Which of my tickets are In Progress for the longest?",
+  "Do any of my tickets have vague descriptions I should improve?",
+  "Which machine do I have the most tickets on?",
+  "Summarize what I should work on next, with reasoning.",
+  "Are any of my tickets potentially duplicates?",
 ];
 
 function ChatPage() {
+  const { isManager, profile } = useAuth();
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const suggestions = isManager ? MANAGER_SUGGESTIONS : TECHNICIAN_SUGGESTIONS;
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -49,13 +64,17 @@ function ChatPage() {
     }
   }
 
+  const greeting = isManager
+    ? "Ask anything about the team's CMV backlog. The AI sees every ticket."
+    : `Ask anything about your tickets${profile?.display_name ? `, ${profile.display_name.split(" ")[0]}` : ""}. The AI only sees what is assigned to you.`;
+
   return (
     <div className="p-6 lg:p-8 max-w-4xl mx-auto h-screen flex flex-col">
       <header className="mb-4">
         <p className="text-xs uppercase tracking-widest text-muted-foreground">AI Chat</p>
         <h1 className="text-3xl font-bold tracking-tight mt-1 flex items-center gap-2">
           <MessageSquare className="size-7 text-primary" />
-          Ask your Backlog
+          {isManager ? "Ask the Team Backlog" : "Ask My Backlog"}
         </h1>
       </header>
 
@@ -65,11 +84,9 @@ function ChatPage() {
             <div className="size-16 mx-auto rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/30 flex items-center justify-center">
               <Sparkles className="size-7 text-primary" />
             </div>
-            <p className="text-sm text-muted-foreground">
-              Ask anything about your CMV backlog. The AI has live access to all tickets.
-            </p>
+            <p className="text-sm text-muted-foreground">{greeting}</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-xl mx-auto">
-              {SUGGESTIONS.map((s) => (
+              {suggestions.map((s) => (
                 <button
                   key={s}
                   onClick={() => send(s)}
@@ -121,7 +138,7 @@ function ChatPage() {
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask about your backlog…"
+          placeholder={isManager ? "Ask about the team's backlog…" : "Ask about your tickets…"}
           disabled={loading}
           className="flex-1 bg-input border border-border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
         />
