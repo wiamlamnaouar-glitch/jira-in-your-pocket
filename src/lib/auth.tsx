@@ -48,6 +48,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
+    // Patch fetch ONCE on the client to attach the Supabase access token
+    // to TanStack server function requests (/_serverFn/*).
+    if (typeof window !== "undefined" && !(window as unknown as { __sfFetchPatched?: boolean }).__sfFetchPatched) {
+      (window as unknown as { __sfFetchPatched: boolean }).__sfFetchPatched = true;
+      const originalFetch = window.fetch.bind(window);
+      window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url =
+          typeof input === "string"
+            ? input
+            : input instanceof URL
+            ? input.toString()
+            : input.url;
+        if (url && url.includes("/_serverFn/")) {
+          const { data } = await supabase.auth.getSession();
+          const token = data.session?.access_token;
+          if (token) {
+            const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
+            if (!headers.has("authorization")) {
+              headers.set("authorization", `Bearer ${token}`);
+            }
+            return originalFetch(input, { ...init, headers });
+          }
+        }
+        return originalFetch(input, init);
+      };
+    }
+
     // 1) listener first
     const { data: sub } = supabase.auth.onAuthStateChange((_event, sess) => {
       setSession(sess);
