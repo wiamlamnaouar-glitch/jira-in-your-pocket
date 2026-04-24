@@ -1,10 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Sparkles, Loader2 } from "lucide-react";
+import { Sparkles, Loader2, Check, AlertCircle, ExternalLink } from "lucide-react";
 import { TicketCard } from "@/components/TicketCard";
-import { getProblemTickets, rewriteTicket, type RewriteResult } from "@/server/jira.functions";
+import {
+  getProblemTickets,
+  rewriteTicket,
+  approveAndPushToJira,
+  type RewriteResult,
+} from "@/server/jira.functions";
 import type { JiraIssue } from "@/lib/jira";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/_app/rewriter")({
   component: RewriterPage,
@@ -12,12 +18,15 @@ export const Route = createFileRoute("/_app/rewriter")({
 });
 
 function RewriterPage() {
+  const { isManager } = useAuth();
   const [tickets, setTickets] = useState<JiraIssue[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<JiraIssue | null>(null);
   const [result, setResult] = useState<RewriteResult | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pushing, setPushing] = useState(false);
+  const [pushSuccess, setPushSuccess] = useState(false);
 
   useEffect(() => {
     getProblemTickets()
@@ -29,6 +38,7 @@ function RewriterPage() {
     setSelected(t);
     setResult(null);
     setError(null);
+    setPushSuccess(false);
     setAiLoading(true);
     try {
       const r = await rewriteTicket({
@@ -40,6 +50,37 @@ function RewriterPage() {
       setError(e instanceof Error ? e.message : "AI failed");
     } finally {
       setAiLoading(false);
+    }
+  }
+
+  async function handleApprovePush() {
+    if (!selected || !result) return;
+    setPushing(true);
+    setError(null);
+    setPushSuccess(false);
+    try {
+      const r = await approveAndPushToJira({
+        data: {
+          key: selected.key,
+          summary: result.newTitle,
+          description: result.newDescription,
+          labels: result.suggestedLabels,
+          acceptanceCriteria: result.acceptanceCriteria,
+          assigneeAccountId: selected.fields.assignee?.accountId ?? null,
+          assigneeDisplayName: selected.fields.assignee?.displayName ?? null,
+        },
+      });
+      if (!r.ok) {
+        setError(r.error ?? "Push failed");
+      } else {
+        setPushSuccess(true);
+        // remove from list
+        setTickets((cur) => cur.filter((t) => t.id !== selected.id));
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Push failed");
+    } finally {
+      setPushing(false);
     }
   }
 
