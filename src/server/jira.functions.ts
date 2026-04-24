@@ -501,3 +501,36 @@ export const getMyRole = createServerFn({ method: "GET" })
       .maybeSingle();
     return { role: (data?.role as "manager" | "technician" | undefined) ?? null };
   });
+
+// ─── Notification details (Jira email-like view) ──────────────────────────
+
+import { fetchIssueDetail, getIssueUrl } from "../lib/jira";
+
+export const getIssueDetailForNotification = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { key: string }) => d)
+  .handler(async ({ data, context }) => {
+    const viewer = await resolveViewer(context.userId);
+    const detail = await fetchIssueDetail(data.key);
+
+    // Authorization: technician can only view tickets assigned to them
+    if (viewer.role === "technician") {
+      if (!viewer.jiraAccountId || detail.assignee?.accountId !== viewer.jiraAccountId) {
+        throw new Error("Not authorized to view this ticket");
+      }
+    }
+
+    // Strip non-serializable ADF body — keep only plain text
+    const safeDetail = {
+      ...detail,
+      comments: detail.comments.map((c) => ({
+        id: c.id,
+        author: c.author,
+        bodyText: c.bodyText ?? "",
+        created: c.created,
+        updated: c.updated,
+      })),
+    };
+
+    return { detail: safeDetail, jiraUrl: getIssueUrl(data.key) };
+  });

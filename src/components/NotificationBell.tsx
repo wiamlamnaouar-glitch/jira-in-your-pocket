@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Bell, Check } from "lucide-react";
+import { Bell, Check, ExternalLink } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -91,26 +92,42 @@ export function NotificationBell() {
           {items.length === 0 && (
             <div className="p-6 text-center text-sm text-muted-foreground">No notifications yet</div>
           )}
-          {items.map((n) => (
-            <button
-              key={n.id}
-              onClick={() => markRead(n.id)}
-              className={`w-full text-left px-3 py-2.5 border-b border-border last:border-b-0 hover:bg-accent transition-colors ${
-                !n.read ? "bg-primary/5" : ""
-              }`}
-            >
-              <div className="flex items-start gap-2">
-                {!n.read && <span className="mt-1.5 size-2 rounded-full bg-primary shrink-0" />}
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium">{n.title}</div>
-                  <div className="text-xs text-muted-foreground line-clamp-2">{n.message}</div>
-                  <div className="text-[10px] text-muted-foreground mt-1">
-                    {formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}
+          {items.map((n) => {
+            const detailHref = n.link && n.link.startsWith("/notifications/") ? n.link : null;
+            return (
+              <div
+                key={n.id}
+                className={`px-3 py-2.5 border-b border-border last:border-b-0 hover:bg-accent/50 transition-colors ${
+                  !n.read ? "bg-primary/5" : ""
+                }`}
+              >
+                <button
+                  onClick={() => markRead(n.id)}
+                  className="w-full text-left"
+                >
+                  <div className="flex items-start gap-2">
+                    {!n.read && <span className="mt-1.5 size-2 rounded-full bg-primary shrink-0" />}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium">{n.title}</div>
+                      <div className="text-xs text-muted-foreground line-clamp-2">{n.message}</div>
+                      <div className="text-[10px] text-muted-foreground mt-1">
+                        {formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}
+                      </div>
+                    </div>
                   </div>
-                </div>
+                </button>
+                {detailHref && (
+                  <Link
+                    to={detailHref}
+                    onClick={() => markRead(n.id)}
+                    className="mt-2 ml-4 inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline"
+                  >
+                    View details <ExternalLink className="size-3" />
+                  </Link>
+                )}
               </div>
-            </button>
-          ))}
+            );
+          })}
         </div>
       </PopoverContent>
     </Popover>

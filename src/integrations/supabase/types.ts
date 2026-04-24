@@ -17,7 +17,9 @@ export type Database = {
       notifications: {
         Row: {
           created_at: string
+          event_id: string | null
           id: string
+          issue_key: string | null
           link: string | null
           message: string
           metadata: Json | null
@@ -28,7 +30,9 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          event_id?: string | null
           id?: string
+          issue_key?: string | null
           link?: string | null
           message: string
           metadata?: Json | null
@@ -39,7 +43,9 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          event_id?: string | null
           id?: string
+          issue_key?: string | null
           link?: string | null
           message?: string
           metadata?: Json | null
