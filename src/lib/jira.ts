@@ -101,3 +101,132 @@ function adfToText(node: unknown): string {
 export function getIssueUrl(key: string) {
   return `https://bpmproject.atlassian.net/browse/${key}`;
 }
+
+// ─── Changelog & Comments (used by notification poller) ──────────────────
+
+export type ChangelogItem = {
+  field: string;
+  fieldtype?: string;
+  fromString: string | null;
+  toString: string | null;
+};
+
+export type ChangelogEntry = {
+  id: string;
+  author: { accountId: string; displayName: string; avatarUrls?: { "32x32"?: string } } | null;
+  created: string;
+  items: ChangelogItem[];
+};
+
+export type JiraComment = {
+  id: string;
+  author: { accountId: string; displayName: string; avatarUrls?: { "32x32"?: string } } | null;
+  body: unknown; // ADF
+  bodyText?: string;
+  created: string;
+  updated: string;
+};
+
+/** Fetch issues updated since a given ISO timestamp, including changelog + comments. */
+export async function searchUpdatedIssuesWithDetails(sinceIso: string, maxResults = 50) {
+  // JQL: project CMV updated since X
+  const jql = `project = CMV AND updated >= "${toJqlDate(sinceIso)}" ORDER BY updated DESC`;
+  const url = `${BASE_URL}/search/jql`;
+  const body = {
+    jql,
+    maxResults,
+    fields: ["summary", "status", "issuetype", "assignee", "reporter", "updated", "priority"],
+    expand: ["changelog"],
+  };
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: authHeader(),
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    console.error("Jira poll search error", res.status, txt);
+    throw new Error(`Jira poll failed (${res.status})`);
+  }
+  const data = (await res.json()) as {
+    issues?: Array<{
+      id: string;
+      key: string;
+      fields: {
+        summary: string;
+        status: { name: string };
+        issuetype: { name: string };
+        assignee: { accountId: string; displayName: string; avatarUrls?: { "32x32"?: string } } | null;
+        reporter: { accountId: string; displayName: string } | null;
+        updated: string;
+        priority: { name: string } | null;
+      };
+      changelog?: { histories?: ChangelogEntry[] };
+    }>;
+  };
+  return data.issues ?? [];
+}
+
+/** Fetch comments for a single issue created since a date. */
+export async function fetchIssueComments(key: string): Promise<JiraComment[]> {
+  const url = `${BASE_URL}/issue/${key}/comment?orderBy=-created&maxResults=20`;
+  const res = await fetch(url, {
+    headers: { Authorization: authHeader(), Accept: "application/json" },
+  });
+  if (!res.ok) return [];
+  const data = (await res.json()) as { comments?: JiraComment[] };
+  const comments = data.comments ?? [];
+  return comments.map((c) => ({ ...c, bodyText: adfToText(c.body) }));
+}
+
+/** Fetch full changelog + comments for ONE issue (used on notification details page). */
+export async function fetchIssueDetail(key: string) {
+  const url = `${BASE_URL}/issue/${key}?expand=changelog&fields=summary,status,issuetype,assignee,reporter,updated,priority,description`;
+  const res = await fetch(url, {
+    headers: { Authorization: authHeader(), Accept: "application/json" },
+  });
+  if (!res.ok) throw new Error(`Jira issue fetch failed (${res.status})`);
+  const data = (await res.json()) as {
+    id: string;
+    key: string;
+    fields: {
+      summary: string;
+      status: { name: string };
+      issuetype: { name: string };
+      assignee: { accountId: string; displayName: string; avatarUrls?: { "32x32"?: string } } | null;
+      reporter: { accountId: string; displayName: string } | null;
+      updated: string;
+      priority: { name: string } | null;
+      description: unknown;
+    };
+    changelog?: { histories?: ChangelogEntry[] };
+  };
+  const comments = await fetchIssueComments(key);
+  return {
+    id: data.id,
+    key: data.key,
+    summary: data.fields.summary,
+    status: data.fields.status?.name ?? "",
+    issuetype: data.fields.issuetype?.name ?? "",
+    assignee: data.fields.assignee,
+    reporter: data.fields.reporter,
+    updated: data.fields.updated,
+    priority: data.fields.priority?.name ?? null,
+    descriptionText: adfToText(data.fields.description),
+    histories: (data.changelog?.histories ?? []).sort(
+      (a, b) => new Date(b.created).getTime() - new Date(a.created).getTime(),
+    ),
+    comments,
+  };
+}
+
+function toJqlDate(iso: string) {
+  // JQL format: yyyy/MM/dd HH:mm
+  const d = new Date(iso);
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  return `${d.getUTCFullYear()}/${pad(d.getUTCMonth() + 1)}/${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+}
