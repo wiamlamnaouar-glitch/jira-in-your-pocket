@@ -1,5 +1,8 @@
 /**
  * Server functions exposing Jira data + AI analyses to the client.
+ * All read endpoints honor the caller's role:
+ *   - manager  → sees all CMV tickets
+ *   - technician → sees only tickets assigned to their Jira accountId
  */
 import { createServerFn } from "@tanstack/react-start";
 import { searchIssues, type JiraIssue } from "../lib/jira";
@@ -7,12 +10,14 @@ import { updateJiraIssue } from "../lib/jira-write";
 import {
   computeHealth,
   findDuplicates,
+  findRecurringProblems,
   groupByAssignee,
   groupByMachine,
   isMisclassified,
   isVague,
   daysSince,
   machineFromText,
+  MIN_RECURRENCE,
 } from "../lib/backlog";
 import { callAI } from "../lib/ai";
 import { requireSupabaseAuth } from "../integrations/supabase/auth-middleware";
@@ -20,130 +25,204 @@ import { supabaseAdmin } from "../integrations/supabase/client.server";
 
 const PROJECT_KEY = "CMV";
 
-export const getAllIssues = createServerFn({ method: "GET" }).handler(async () => {
-  try {
-    const issues = await searchIssues(
-      `project = ${PROJECT_KEY} ORDER BY updated DESC`,
-      100,
-    );
-    return { issues, error: null as string | null };
-  } catch (e) {
-    console.error("getAllIssues error", e);
-    const msg = e instanceof Error ? e.message : "Unknown error";
-    return { issues: [] as JiraIssue[], error: msg };
+// ─── VIEWER SCOPING ────────────────────────────────────────────────────────
+
+type Viewer = {
+  role: "manager" | "technician" | null;
+  jiraAccountId: string | null;
+  displayName: string | null;
+};
+
+async function resolveViewer(userId: string): Promise<Viewer> {
+  const [{ data: roleRow }, { data: profile }] = await Promise.all([
+    supabaseAdmin.from("user_roles").select("role").eq("user_id", userId).maybeSingle(),
+    supabaseAdmin
+      .from("profiles")
+      .select("jira_account_id, display_name")
+      .eq("id", userId)
+      .maybeSingle(),
+  ]);
+  return {
+    role: (roleRow?.role as Viewer["role"]) ?? null,
+    jiraAccountId: profile?.jira_account_id ?? null,
+    displayName: profile?.display_name ?? null,
+  };
+}
+
+/** Build the JQL clause based on viewer role. Manager sees all; technician sees own. */
+function jqlForViewer(viewer: Viewer): string {
+  const base = `project = ${PROJECT_KEY}`;
+  if (viewer.role === "technician" && viewer.jiraAccountId) {
+    return `${base} AND assignee = "${viewer.jiraAccountId}" ORDER BY updated DESC`;
   }
-});
+  return `${base} ORDER BY updated DESC`;
+}
 
-export const getDashboardData = createServerFn({ method: "GET" }).handler(async () => {
-  try {
-    const issues = await searchIssues(
-      `project = ${PROJECT_KEY} ORDER BY updated DESC`,
-      100,
-    );
-    const health = computeHealth(issues);
-    const duplicates = findDuplicates(issues);
-    const machines = groupByMachine(issues);
-    const assignees = groupByAssignee(issues);
+async function fetchScopedIssues(viewer: Viewer): Promise<JiraIssue[]> {
+  return searchIssues(jqlForViewer(viewer), 200);
+}
 
-    const machineStats = Object.entries(machines)
-      .map(([name, arr]) => ({
-        name,
-        total: arr.length,
-        open: arr.filter((i) => i.fields.status.statusCategory.key !== "done").length,
-        done: arr.filter((i) => i.fields.status.statusCategory.key === "done").length,
-        high: arr.filter((i) => i.fields.priority?.name === "High").length,
-      }))
-      .sort((a, b) => {
-        // Sort M01..M0N first, then Unassigned
-        if (a.name === "Unassigned") return 1;
-        if (b.name === "Unassigned") return -1;
-        return a.name.localeCompare(b.name);
-      });
+// ─── READ ENDPOINTS (role-aware) ───────────────────────────────────────────
 
-    const statusBreakdown = issues.reduce(
-      (acc, i) => {
-        const k = i.fields.status.statusCategory.key;
-        acc[k] = (acc[k] ?? 0) + 1;
-        return acc;
-      },
-      {} as Record<string, number>,
-    );
+export const getAllIssues = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    try {
+      const viewer = await resolveViewer(context.userId);
+      const issues = await fetchScopedIssues(viewer);
+      return { issues, viewer, error: null as string | null };
+    } catch (e) {
+      console.error("getAllIssues error", e);
+      const msg = e instanceof Error ? e.message : "Unknown error";
+      return {
+        issues: [] as JiraIssue[],
+        viewer: { role: null, jiraAccountId: null, displayName: null } as Viewer,
+        error: msg,
+      };
+    }
+  });
 
-    const typeBreakdown = issues.reduce(
-      (acc, i) => {
-        const k = i.fields.issuetype.name;
-        acc[k] = (acc[k] ?? 0) + 1;
-        return acc;
-      },
-      {} as Record<string, number>,
-    );
+export const getDashboardData = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    try {
+      const viewer = await resolveViewer(context.userId);
+      const issues = await fetchScopedIssues(viewer);
+      const health = computeHealth(issues);
+      const duplicates = findDuplicates(issues);
+      const recurring = findRecurringProblems(issues);
+      const machines = groupByMachine(issues);
+      const assignees = groupByAssignee(issues);
 
-    return {
-      health,
-      duplicateGroups: duplicates.length,
-      machineStats,
-      assignees,
-      statusBreakdown,
-      typeBreakdown,
-      totalIssues: issues.length,
-      error: null as string | null,
-    };
-  } catch (e) {
-    console.error("getDashboardData error", e);
-    const msg = e instanceof Error ? e.message : "Unknown error";
-    return {
-      health: null,
-      duplicateGroups: 0,
-      machineStats: [],
-      assignees: [],
-      statusBreakdown: {},
-      typeBreakdown: {},
-      totalIssues: 0,
-      error: msg,
-    };
-  }
-});
+      const machineStats = Object.entries(machines)
+        .map(([name, arr]) => ({
+          name,
+          total: arr.length,
+          open: arr.filter((i) => i.fields.status.statusCategory.key !== "done").length,
+          done: arr.filter((i) => i.fields.status.statusCategory.key === "done").length,
+          high: arr.filter((i) => i.fields.priority?.name === "High").length,
+        }))
+        .sort((a, b) => {
+          if (a.name === "Unassigned") return 1;
+          if (b.name === "Unassigned") return -1;
+          return a.name.localeCompare(b.name);
+        });
 
-export const getDuplicates = createServerFn({ method: "GET" }).handler(async () => {
-  try {
-    const issues = await searchIssues(
-      `project = ${PROJECT_KEY} ORDER BY updated DESC`,
-      100,
-    );
-    const groups = findDuplicates(issues);
-    return { groups, error: null as string | null };
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : "Unknown error";
-    return { groups: [], error: msg };
-  }
-});
+      // Status breakdown using Jira's actual status names
+      const statusBreakdown = issues.reduce(
+        (acc, i) => {
+          const k = i.fields.status.name; // "Open", "Scheduled", "In Progress", "In Review", "Closed"
+          acc[k] = (acc[k] ?? 0) + 1;
+          return acc;
+        },
+        {} as Record<string, number>,
+      );
 
-export const getProblemTickets = createServerFn({ method: "GET" }).handler(async () => {
-  try {
-    const issues = await searchIssues(
-      `project = ${PROJECT_KEY} ORDER BY updated DESC`,
-      100,
-    );
-    const vague = issues.filter(
-      (i) => isVague(i.fields.description) || i.fields.summary.trim().length < 12,
-    );
-    const misclassified = issues.filter(isMisclassified);
-    const stale = issues.filter(
-      (i) =>
-        i.fields.status.statusCategory.key === "indeterminate" &&
-        daysSince(i.fields.updated) > 2,
-    );
-    return {
-      vague,
-      misclassified,
-      stale,
-      error: null as string | null,
-    };
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : "Unknown error";
-    return { vague: [], misclassified: [], stale: [], error: msg };
-  }
-});
+      const typeBreakdown = issues.reduce(
+        (acc, i) => {
+          const k = i.fields.issuetype.name;
+          acc[k] = (acc[k] ?? 0) + 1;
+          return acc;
+        },
+        {} as Record<string, number>,
+      );
+
+      return {
+        health,
+        duplicateGroups: duplicates.length,
+        recurringCount: recurring.length,
+        recurringTotalTickets: recurring.reduce((a, r) => a + r.count, 0),
+        machineStats,
+        assignees,
+        statusBreakdown,
+        typeBreakdown,
+        totalIssues: issues.length,
+        viewer,
+        error: null as string | null,
+      };
+    } catch (e) {
+      console.error("getDashboardData error", e);
+      const msg = e instanceof Error ? e.message : "Unknown error";
+      return {
+        health: null,
+        duplicateGroups: 0,
+        recurringCount: 0,
+        recurringTotalTickets: 0,
+        machineStats: [],
+        assignees: [],
+        statusBreakdown: {},
+        typeBreakdown: {},
+        totalIssues: 0,
+        viewer: { role: null, jiraAccountId: null, displayName: null } as Viewer,
+        error: msg,
+      };
+    }
+  });
+
+export const getDuplicates = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    try {
+      const viewer = await resolveViewer(context.userId);
+      const issues = await fetchScopedIssues(viewer);
+      const groups = findDuplicates(issues);
+      return { groups, viewer, error: null as string | null };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Unknown error";
+      return {
+        groups: [],
+        viewer: { role: null, jiraAccountId: null, displayName: null } as Viewer,
+        error: msg,
+      };
+    }
+  });
+
+export const getRecurringProblems = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    try {
+      const viewer = await resolveViewer(context.userId);
+      const issues = await fetchScopedIssues(viewer);
+      const problems = findRecurringProblems(issues);
+      return { problems, threshold: MIN_RECURRENCE, viewer, error: null as string | null };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Unknown error";
+      return {
+        problems: [],
+        threshold: MIN_RECURRENCE,
+        viewer: { role: null, jiraAccountId: null, displayName: null } as Viewer,
+        error: msg,
+      };
+    }
+  });
+
+export const getProblemTickets = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    try {
+      const viewer = await resolveViewer(context.userId);
+      const issues = await fetchScopedIssues(viewer);
+      const vague = issues.filter(
+        (i) => isVague(i.fields.description) || i.fields.summary.trim().length < 12,
+      );
+      const misclassified = issues.filter(isMisclassified);
+      const stale = issues.filter(
+        (i) =>
+          i.fields.status.statusCategory.key === "indeterminate" &&
+          daysSince(i.fields.updated) > 2,
+      );
+      return { vague, misclassified, stale, viewer, error: null as string | null };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Unknown error";
+      return {
+        vague: [],
+        misclassified: [],
+        stale: [],
+        viewer: { role: null, jiraAccountId: null, displayName: null } as Viewer,
+        error: msg,
+      };
+    }
+  });
 
 // ─── AI ENDPOINTS ──────────────────────────────────────────────────────────
 
@@ -159,7 +238,7 @@ export const rewriteTicket = createServerFn({ method: "POST" })
   .inputValidator((data: { key: string; summary: string; description: string | null }) => data)
   .handler(async ({ data }): Promise<{ result: RewriteResult | null; error: string | null }> => {
     try {
-      const sys = `You are a senior maintenance engineer rewriting Jira tickets for an industrial machine maintenance team (machines M01-M07). 
+      const sys = `You are a senior maintenance engineer rewriting Jira tickets for an industrial machine maintenance team (machines M01-M07). Reply 100% in ENGLISH.
 For each ticket, produce a clean, professional ticket with:
 - A clear, descriptive title (start with machine code if applicable, e.g. "M05 - ...")
 - A detailed description (context, observed symptoms, business impact)
@@ -171,7 +250,7 @@ Key: ${data.key}
 Title: ${data.summary}
 Description: ${data.description ?? "(empty)"}
 
-Rewrite it into a professional ticket.`;
+Rewrite it into a professional ticket in English.`;
 
       const result = await callAI({
         messages: [
@@ -229,7 +308,7 @@ export const classifyTicket = createServerFn({ method: "POST" })
   .inputValidator((data: { key: string; summary: string; description: string | null; currentType: string }) => data)
   .handler(async ({ data }): Promise<{ result: ClassifyResult | null; error: string | null }> => {
     try {
-      const sys = `You classify maintenance tickets for an industrial team. Types:
+      const sys = `You classify maintenance tickets for an industrial team. Reply in English. Types:
 - Corrective: fixing something broken/failed (failures, breakdowns, errors observed)
 - Preventive: scheduled maintenance to prevent issues (verifications, inspections, planned work)
 Respond ONLY by calling classify_ticket.`;
@@ -275,7 +354,7 @@ export const explainBlocker = createServerFn({ method: "POST" })
   .inputValidator((data: { key: string; summary: string; description: string | null; daysStuck: number }) => data)
   .handler(async ({ data }) => {
     try {
-      const sys = `You analyze why a maintenance ticket is stuck "En cours". Be concrete and actionable. Suggest 2-3 next steps.`;
+      const sys = `You analyze why a maintenance ticket is stuck "In Progress". Reply in English. Be concrete and actionable. Suggest 2-3 next steps.`;
       const result = await callAI({
         messages: [
           { role: "system", content: sys },
@@ -293,14 +372,13 @@ export const explainBlocker = createServerFn({ method: "POST" })
   });
 
 export const askBacklog = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: { question: string }) => data)
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     try {
-      const issues = await searchIssues(
-        `project = ${PROJECT_KEY} ORDER BY updated DESC`,
-        100,
-      );
-      // Compact context
+      const viewer = await resolveViewer(context.userId);
+      const issues = await fetchScopedIssues(viewer);
+
       const compact = issues.map((i) => ({
         key: i.key,
         title: i.fields.summary,
@@ -312,11 +390,17 @@ export const askBacklog = createServerFn({ method: "POST" })
         daysSinceUpdate: daysSince(i.fields.updated).toFixed(1),
       }));
 
-      const sys = `You are an AI analyst for the CMV (Computer Maintenance & Vision) Jira backlog. 
-Answer the user's question using ONLY the data provided. 
-Cite ticket keys (e.g. CMV-25) when referencing tickets. 
-Be concise and use bullet points or tables in markdown.
-If the question cannot be answered from the data, say so.`;
+      const scopeNote =
+        viewer.role === "technician"
+          ? `The viewer is a TECHNICIAN named ${viewer.displayName ?? "(unknown)"}. The data below contains ONLY their own assigned tickets. Frame answers as "your tickets".`
+          : `The viewer is the MAINTENANCE MANAGER. The data below contains ALL CMV tickets across the team.`;
+
+      const sys = `You are an AI analyst for the CMV (Computer Maintenance & Vision) Jira backlog. Reply 100% in ENGLISH.
+${scopeNote}
+Answer the user's question using ONLY the data provided.
+Cite ticket keys (e.g. CMV-25) when referencing tickets.
+Be concise and use bullet points or markdown tables.
+If the question cannot be answered from the data, say so clearly.`;
 
       const result = await callAI({
         messages: [
@@ -327,10 +411,14 @@ If the question cannot be answered from the data, say so.`;
           },
         ],
       });
-      return { content: result.content, error: null as string | null };
+      return { content: result.content, viewer, error: null as string | null };
     } catch (e) {
       const msg = e instanceof Error ? e.message : "AI call failed";
-      return { content: null, error: msg };
+      return {
+        content: null,
+        viewer: { role: null, jiraAccountId: null, displayName: null } as Viewer,
+        error: msg,
+      };
     }
   });
 
@@ -351,7 +439,6 @@ export const approveAndPushToJira = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     try {
-      // Verify caller is a manager
       const { data: roleRow } = await supabaseAdmin
         .from("user_roles")
         .select("role")
@@ -363,7 +450,6 @@ export const approveAndPushToJira = createServerFn({ method: "POST" })
         return { ok: false, error: "Only managers can approve and push to Jira" };
       }
 
-      // Push to Jira
       await updateJiraIssue({
         key: data.key,
         summary: data.summary,
@@ -372,7 +458,6 @@ export const approveAndPushToJira = createServerFn({ method: "POST" })
         acceptanceCriteria: data.acceptanceCriteria,
       });
 
-      // Notify the assignee (technician) if mapped
       if (data.assigneeAccountId) {
         const { data: assigneeProfile } = await supabaseAdmin
           .from("profiles")
@@ -391,7 +476,6 @@ export const approveAndPushToJira = createServerFn({ method: "POST" })
         }
       }
 
-      // Self-notification (audit trail)
       await supabaseAdmin.from("notifications").insert({
         user_id: context.userId,
         type: "info",
