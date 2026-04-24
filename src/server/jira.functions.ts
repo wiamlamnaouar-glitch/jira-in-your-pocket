@@ -501,3 +501,24 @@ export const getMyRole = createServerFn({ method: "GET" })
       .maybeSingle();
     return { role: (data?.role as "manager" | "technician" | undefined) ?? null };
   });
+
+// ─── Notification details (Jira email-like view) ──────────────────────────
+
+import { fetchIssueDetail, getIssueUrl } from "../lib/jira";
+
+export const getIssueDetailForNotification = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { key: string }) => d)
+  .handler(async ({ data, context }) => {
+    const viewer = await resolveViewer(context.userId);
+    const detail = await fetchIssueDetail(data.key);
+
+    // Authorization: technician can only view tickets assigned to them
+    if (viewer.role === "technician") {
+      if (!viewer.jiraAccountId || detail.assignee?.accountId !== viewer.jiraAccountId) {
+        throw new Error("Not authorized to view this ticket");
+      }
+    }
+
+    return { detail, jiraUrl: getIssueUrl(data.key) };
+  });
