@@ -30,31 +30,44 @@ export type JiraIssue = {
       displayName: string;
       avatarUrls: { "32x32": string };
     } | null;
+    reporter?: {
+      accountId: string;
+      displayName: string;
+    } | null;
     created: string;
     updated: string;
     labels: string[];
+    customfield_10371?: string | null;
+    customfield_10372?: string | null;
+    customfield_10383?: string | null;
+    customfield_10376?: number | null;
+    customfield_10452?: string | null;
+    customfield_10453?: number | null;
   };
 };
+
+const DEFAULT_SEARCH_FIELDS = [
+  "summary",
+  "description",
+  "status",
+  "issuetype",
+  "priority",
+  "assignee",
+  "created",
+  "updated",
+  "labels",
+] as const;
 
 export async function searchIssues(
   jql: string,
   maxResults = 100,
+  fields: readonly string[] = DEFAULT_SEARCH_FIELDS,
 ): Promise<JiraIssue[]> {
   const url = `${BASE_URL}/search/jql`;
   const body = {
     jql,
     maxResults,
-    fields: [
-      "summary",
-      "description",
-      "status",
-      "issuetype",
-      "priority",
-      "assignee",
-      "created",
-      "updated",
-      "labels",
-    ],
+    fields,
   };
 
   const res = await fetch(url, {
@@ -102,6 +115,22 @@ export function getIssueUrl(key: string) {
   return `https://bpmproject.atlassian.net/browse/${key}`;
 }
 
+export async function searchOpenIssuesWithSuggestions(): Promise<JiraIssue[]> {
+  return searchIssues(
+    `project = CMV AND status = Open ORDER BY updated DESC`,
+    100,
+    [
+      ...DEFAULT_SEARCH_FIELDS,
+      "customfield_10371",
+      "customfield_10372",
+      "customfield_10383",
+      "customfield_10376",
+      "customfield_10452",
+      "customfield_10453",
+    ],
+  );
+}
+
 // ─── Changelog & Comments (used by notification poller) ──────────────────
 
 export type ChangelogItem = {
@@ -136,7 +165,7 @@ export async function searchUpdatedIssuesWithDetails(sinceIso: string, maxResult
     jql,
     maxResults,
     fields: ["summary", "status", "issuetype", "assignee", "reporter", "updated", "priority"],
-    expand: ["changelog"],
+    expand: "changelog",
   };
   const res = await fetch(url, {
     method: "POST",
