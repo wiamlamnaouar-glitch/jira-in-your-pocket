@@ -3,6 +3,7 @@
  */
 import { createServerFn } from "@tanstack/react-start";
 import { searchIssues, type JiraIssue } from "../lib/jira";
+import { updateJiraIssue } from "../lib/jira-write";
 import {
   computeHealth,
   findDuplicates,
@@ -14,6 +15,8 @@ import {
   machineFromText,
 } from "../lib/backlog";
 import { callAI } from "../lib/ai";
+import { requireSupabaseAuth } from "../integrations/supabase/auth-middleware";
+import { supabaseAdmin } from "../integrations/supabase/client.server";
 
 const PROJECT_KEY = "CMV";
 
