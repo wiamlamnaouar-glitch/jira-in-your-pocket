@@ -15,26 +15,14 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 
-const NAV = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard, roles: ["manager", "technician"] },
-  { to: "/board", label: "Board", icon: Kanban, roles: ["manager", "technician"] },
-  { to: "/backlog", label: "Backlog", icon: Activity, roles: ["manager", "technician"] },
-  { to: "/duplicates", label: "Duplicates", icon: Copy, roles: ["manager"] },
-  { to: "/rewriter", label: "AI Rewriter", icon: Sparkles, roles: ["manager", "technician"] },
-  { to: "/suggestions", label: "AI Suggestions", icon: BrainCircuit, roles: ["manager"] },
-  { to: "/risk", label: "Risk Radar", icon: AlertTriangle, roles: ["manager"] },
-  { to: "/team", label: "Team Load", icon: Users, roles: ["manager"] },
-  { to: "/chat", label: "Ask AI", icon: MessageSquare, roles: ["manager", "technician"] },
-] as const;
-
-export function Sidebar() {
+export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const loc = useLocation();
   const { role, profile } = useAuth();
   const items = NAV.filter((n) => !role || (n.roles as readonly string[]).includes(role));
 
   return (
-    <aside className="hidden md:flex flex-col w-60 border-r border-border bg-sidebar h-screen sticky top-0 px-3 py-5">
-      <Link to="/" className="flex items-center gap-2 px-2 mb-5">
+    <div className="flex flex-col h-full px-3 py-5">
+      <Link to="/" onClick={onNavigate} className="flex items-center gap-2 px-2 mb-5">
         <div className="size-8 rounded-md bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center font-bold text-primary-foreground shadow-[0_0_20px_oklch(0.68_0.20_255_/_0.4)]">
           A
         </div>
@@ -62,7 +50,7 @@ export function Sidebar() {
         </div>
       )}
 
-      <nav className="flex flex-col gap-0.5">
+      <nav className="flex flex-col gap-0.5 overflow-y-auto">
         {items.map((n) => {
           const Icon = n.icon;
           const active = loc.pathname === n.to;
@@ -70,6 +58,7 @@ export function Sidebar() {
             <Link
               key={n.to}
               to={n.to}
+              onClick={onNavigate}
               className={cn(
                 "flex items-center gap-2.5 px-2.5 py-2 rounded-md text-sm transition-all",
                 active
@@ -91,6 +80,26 @@ export function Sidebar() {
         <div className="text-xs text-foreground font-medium">bpmproject.atlassian.net</div>
         <div className="text-xs text-muted-foreground">Project · CMV</div>
       </div>
+    </div>
+  );
+}
+
+const NAV = [
+  { to: "/", label: "Dashboard", icon: LayoutDashboard, roles: ["manager", "technician"] },
+  { to: "/board", label: "Board", icon: Kanban, roles: ["manager", "technician"] },
+  { to: "/backlog", label: "Backlog", icon: Activity, roles: ["manager", "technician"] },
+  { to: "/duplicates", label: "Duplicates", icon: Copy, roles: ["manager"] },
+  { to: "/rewriter", label: "AI Rewriter", icon: Sparkles, roles: ["manager", "technician"] },
+  { to: "/suggestions", label: "AI Suggestions", icon: BrainCircuit, roles: ["manager"] },
+  { to: "/risk", label: "Risk Radar", icon: AlertTriangle, roles: ["manager"] },
+  { to: "/team", label: "Team Load", icon: Users, roles: ["manager"] },
+  { to: "/chat", label: "Ask AI", icon: MessageSquare, roles: ["manager", "technician"] },
+] as const;
+
+export function Sidebar() {
+  return (
+    <aside className="hidden md:flex flex-col w-60 border-r border-border bg-sidebar h-screen sticky top-0">
+      <SidebarContent />
     </aside>
   );
 }
