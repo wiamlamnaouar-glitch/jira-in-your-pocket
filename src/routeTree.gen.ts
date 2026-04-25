@@ -23,6 +23,7 @@ import { Route as AppDuplicatesRouteImport } from './routes/_app.duplicates'
 import { Route as AppChatRouteImport } from './routes/_app.chat'
 import { Route as AppBoardRouteImport } from './routes/_app.board'
 import { Route as AppBacklogRouteImport } from './routes/_app.backlog'
+import { Route as ApiPublicJiraWebhookRouteImport } from './routes/api/public/jira-webhook'
 import { Route as ApiPublicJiraPollRouteImport } from './routes/api/public/jira-poll'
 import { Route as AppNotificationsKeyRouteImport } from './routes/_app.notifications.$key'
 import { Route as ApiPublicHooksPreventiveSchedulerRouteImport } from './routes/api/public/hooks/preventive-scheduler'
@@ -96,6 +97,11 @@ const AppBacklogRoute = AppBacklogRouteImport.update({
   path: '/backlog',
   getParentRoute: () => AppRoute,
 } as any)
+const ApiPublicJiraWebhookRoute = ApiPublicJiraWebhookRouteImport.update({
+  id: '/api/public/jira-webhook',
+  path: '/api/public/jira-webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicJiraPollRoute = ApiPublicJiraPollRouteImport.update({
   id: '/api/public/jira-poll',
   path: '/api/public/jira-poll',
@@ -129,6 +135,7 @@ export interface FileRoutesByFullPath {
   '/team': typeof AppTeamRoute
   '/notifications/$key': typeof AppNotificationsKeyRoute
   '/api/public/jira-poll': typeof ApiPublicJiraPollRoute
+  '/api/public/jira-webhook': typeof ApiPublicJiraWebhookRoute
   '/api/public/hooks/preventive-scheduler': typeof ApiPublicHooksPreventiveSchedulerRoute
 }
 export interface FileRoutesByTo {
@@ -147,6 +154,7 @@ export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
   '/notifications/$key': typeof AppNotificationsKeyRoute
   '/api/public/jira-poll': typeof ApiPublicJiraPollRoute
+  '/api/public/jira-webhook': typeof ApiPublicJiraWebhookRoute
   '/api/public/hooks/preventive-scheduler': typeof ApiPublicHooksPreventiveSchedulerRoute
 }
 export interface FileRoutesById {
@@ -167,6 +175,7 @@ export interface FileRoutesById {
   '/_app/': typeof AppIndexRoute
   '/_app/notifications/$key': typeof AppNotificationsKeyRoute
   '/api/public/jira-poll': typeof ApiPublicJiraPollRoute
+  '/api/public/jira-webhook': typeof ApiPublicJiraWebhookRoute
   '/api/public/hooks/preventive-scheduler': typeof ApiPublicHooksPreventiveSchedulerRoute
 }
 export interface FileRouteTypes {
@@ -187,6 +196,7 @@ export interface FileRouteTypes {
     | '/team'
     | '/notifications/$key'
     | '/api/public/jira-poll'
+    | '/api/public/jira-webhook'
     | '/api/public/hooks/preventive-scheduler'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -205,6 +215,7 @@ export interface FileRouteTypes {
     | '/'
     | '/notifications/$key'
     | '/api/public/jira-poll'
+    | '/api/public/jira-webhook'
     | '/api/public/hooks/preventive-scheduler'
   id:
     | '__root__'
@@ -224,6 +235,7 @@ export interface FileRouteTypes {
     | '/_app/'
     | '/_app/notifications/$key'
     | '/api/public/jira-poll'
+    | '/api/public/jira-webhook'
     | '/api/public/hooks/preventive-scheduler'
   fileRoutesById: FileRoutesById
 }
@@ -233,6 +245,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   ApiPublicJiraPollRoute: typeof ApiPublicJiraPollRoute
+  ApiPublicJiraWebhookRoute: typeof ApiPublicJiraWebhookRoute
   ApiPublicHooksPreventiveSchedulerRoute: typeof ApiPublicHooksPreventiveSchedulerRoute
 }
 
@@ -336,6 +349,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppBacklogRouteImport
       parentRoute: typeof AppRoute
     }
+    '/api/public/jira-webhook': {
+      id: '/api/public/jira-webhook'
+      path: '/api/public/jira-webhook'
+      fullPath: '/api/public/jira-webhook'
+      preLoaderRoute: typeof ApiPublicJiraWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/jira-poll': {
       id: '/api/public/jira-poll'
       path: '/api/public/jira-poll'
@@ -396,6 +416,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   ApiPublicJiraPollRoute: ApiPublicJiraPollRoute,
+  ApiPublicJiraWebhookRoute: ApiPublicJiraWebhookRoute,
   ApiPublicHooksPreventiveSchedulerRoute:
     ApiPublicHooksPreventiveSchedulerRoute,
 }
