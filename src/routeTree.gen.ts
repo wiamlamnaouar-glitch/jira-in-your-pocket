@@ -18,6 +18,7 @@ import { Route as AppTeamRouteImport } from './routes/_app.team'
 import { Route as AppSuggestionsRouteImport } from './routes/_app.suggestions'
 import { Route as AppRiskRouteImport } from './routes/_app.risk'
 import { Route as AppRewriterRouteImport } from './routes/_app.rewriter'
+import { Route as AppPlanningRouteImport } from './routes/_app.planning'
 import { Route as AppDuplicatesRouteImport } from './routes/_app.duplicates'
 import { Route as AppChatRouteImport } from './routes/_app.chat'
 import { Route as AppBoardRouteImport } from './routes/_app.board'
@@ -70,6 +71,11 @@ const AppRewriterRoute = AppRewriterRouteImport.update({
   path: '/rewriter',
   getParentRoute: () => AppRoute,
 } as any)
+const AppPlanningRoute = AppPlanningRouteImport.update({
+  id: '/planning',
+  path: '/planning',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppDuplicatesRoute = AppDuplicatesRouteImport.update({
   id: '/duplicates',
   path: '/duplicates',
@@ -116,6 +122,7 @@ export interface FileRoutesByFullPath {
   '/board': typeof AppBoardRoute
   '/chat': typeof AppChatRoute
   '/duplicates': typeof AppDuplicatesRoute
+  '/planning': typeof AppPlanningRoute
   '/rewriter': typeof AppRewriterRoute
   '/risk': typeof AppRiskRoute
   '/suggestions': typeof AppSuggestionsRoute
@@ -132,6 +139,7 @@ export interface FileRoutesByTo {
   '/board': typeof AppBoardRoute
   '/chat': typeof AppChatRoute
   '/duplicates': typeof AppDuplicatesRoute
+  '/planning': typeof AppPlanningRoute
   '/rewriter': typeof AppRewriterRoute
   '/risk': typeof AppRiskRoute
   '/suggestions': typeof AppSuggestionsRoute
@@ -151,6 +159,7 @@ export interface FileRoutesById {
   '/_app/board': typeof AppBoardRoute
   '/_app/chat': typeof AppChatRoute
   '/_app/duplicates': typeof AppDuplicatesRoute
+  '/_app/planning': typeof AppPlanningRoute
   '/_app/rewriter': typeof AppRewriterRoute
   '/_app/risk': typeof AppRiskRoute
   '/_app/suggestions': typeof AppSuggestionsRoute
@@ -171,6 +180,7 @@ export interface FileRouteTypes {
     | '/board'
     | '/chat'
     | '/duplicates'
+    | '/planning'
     | '/rewriter'
     | '/risk'
     | '/suggestions'
@@ -187,6 +197,7 @@ export interface FileRouteTypes {
     | '/board'
     | '/chat'
     | '/duplicates'
+    | '/planning'
     | '/rewriter'
     | '/risk'
     | '/suggestions'
@@ -205,6 +216,7 @@ export interface FileRouteTypes {
     | '/_app/board'
     | '/_app/chat'
     | '/_app/duplicates'
+    | '/_app/planning'
     | '/_app/rewriter'
     | '/_app/risk'
     | '/_app/suggestions'
@@ -289,6 +301,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRewriterRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/planning': {
+      id: '/_app/planning'
+      path: '/planning'
+      fullPath: '/planning'
+      preLoaderRoute: typeof AppPlanningRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/duplicates': {
       id: '/_app/duplicates'
       path: '/duplicates'
@@ -346,6 +365,7 @@ interface AppRouteChildren {
   AppBoardRoute: typeof AppBoardRoute
   AppChatRoute: typeof AppChatRoute
   AppDuplicatesRoute: typeof AppDuplicatesRoute
+  AppPlanningRoute: typeof AppPlanningRoute
   AppRewriterRoute: typeof AppRewriterRoute
   AppRiskRoute: typeof AppRiskRoute
   AppSuggestionsRoute: typeof AppSuggestionsRoute
@@ -359,6 +379,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppBoardRoute: AppBoardRoute,
   AppChatRoute: AppChatRoute,
   AppDuplicatesRoute: AppDuplicatesRoute,
+  AppPlanningRoute: AppPlanningRoute,
   AppRewriterRoute: AppRewriterRoute,
   AppRiskRoute: AppRiskRoute,
   AppSuggestionsRoute: AppSuggestionsRoute,
