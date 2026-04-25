@@ -37,13 +37,18 @@ export type JiraIssue = {
     created: string;
     updated: string;
     labels: string[];
-    customfield_10371?: string | null;
-    customfield_10372?: string | null;
-    customfield_10383?: string | null;
-    customfield_10376?: number | null;
-    customfield_10452?: string | null;
-    customfield_10453?: number | null;
+    customfield_10371?: string | null; // ML_Priority CM3
+    customfield_10372?: string | null; // ML_Type_Ticket CM3
+    customfield_10383?: string | null; // (legacy ML assignee)
+    customfield_10376?: number | null; // SLA_Target_Min CM3
+    customfield_10452?: string | null; // ML_Technician_Assigned_CM3
+    customfield_10453?: number | null; // ML_SLA_Target_Min_CM3
     customfield_10454?: number | null; // Reopened_CM3 — count of times the ticket was reopened
+    customfield_10377?: string | null; // Start_Time CM3 (datetime ISO)
+    customfield_10381?: string | null; // ML Start-time CM3 (datetime ISO)
+    customfield_10382?: string | null; // ML DUE DATE CM3 (date)
+    customfield_10384?: string | null; // machine_id CM3
+    duedate?: string | null;            // standard Jira due date
   };
 };
 
