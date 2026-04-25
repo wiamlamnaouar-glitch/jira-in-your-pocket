@@ -174,21 +174,36 @@ export async function approveJiraSuggestions(opts: {
     }
   }
 
-  // Find a transition that lands on "Scheduled"
-  const txRes = await fetch(`${BASE_URL}/issue/${opts.key}/transitions`, {
-    headers: { Authorization: authHeader(), Accept: "application/json" },
-  });
+  // Find a transition that lands on "Scheduled" — include unavailable ones too,
+  // because Jira may flag a transition as conditional/unavailable in the listing
+  // while still accepting the POST (or returning a clearer error message).
+  const txRes = await fetch(
+    `${BASE_URL}/issue/${opts.key}/transitions?includeUnavailableTransitions=true`,
+    { headers: { Authorization: authHeader(), Accept: "application/json" } },
+  );
   if (!txRes.ok) {
     throw new Error(`Failed to read transitions (${txRes.status})`);
   }
   const txData = (await txRes.json()) as {
-    transitions?: Array<{ id: string; name: string; to?: { name?: string } }>;
+    transitions?: Array<{
+      id: string;
+      name: string;
+      to?: { name?: string };
+      isAvailable?: boolean;
+    }>;
   };
-  const target = (txData.transitions ?? []).find(
-    (t) => (t.to?.name ?? "").toLowerCase() === "scheduled",
-  );
+  const allTx = txData.transitions ?? [];
+  // Prefer one whose destination is "Scheduled"; fall back to name match.
+  const target =
+    allTx.find((t) => (t.to?.name ?? "").toLowerCase() === "scheduled") ??
+    allTx.find((t) => t.name.toLowerCase().includes("schedul")) ??
+    allTx.find((t) => t.name.toLowerCase().includes("review"));
+
   if (!target) {
-    throw new Error('No transition to "Scheduled" available from current status');
+    const available = allTx.map((t) => `${t.name} → ${t.to?.name ?? "?"}`).join(", ");
+    throw new Error(
+      `No transition to "Scheduled" available. Workflow exposes: ${available || "(none)"}`,
+    );
   }
 
   const doTx = await fetch(`${BASE_URL}/issue/${opts.key}/transitions`, {
@@ -202,7 +217,27 @@ export async function approveJiraSuggestions(opts: {
   });
   if (!doTx.ok) {
     const text = await doTx.text();
-    throw new Error(`Transition failed (${doTx.status}): ${text.slice(0, 200)}`);
+    // Try to extract Jira's structured error messages
+    let detail = text.slice(0, 300);
+    try {
+      const j = JSON.parse(text) as {
+        errorMessages?: string[];
+        errors?: Record<string, string>;
+      };
+      const msgs = [
+        ...(j.errorMessages ?? []),
+        ...Object.entries(j.errors ?? {}).map(([k, v]) => `${k}: ${v}`),
+      ];
+      if (msgs.length > 0) detail = msgs.join(" | ");
+    } catch {
+      /* keep raw */
+    }
+    if (target.isAvailable === false) {
+      throw new Error(
+        `Jira refused the "${target.name}" transition (workflow condition not met). ${detail}`,
+      );
+    }
+    throw new Error(`Transition failed (${doTx.status}): ${detail}`);
   }
 
   return { ok: true };
