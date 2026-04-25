@@ -8,7 +8,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "../integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "../integrations/supabase/client.server";
-import { createJiraIssue } from "../lib/jira-write";
+import { runDuePreventivePlans } from "./preventive.server";
 
 async function requireManagerRole(userId: string) {
   const { data } = await supabaseAdmin
