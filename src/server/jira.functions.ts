@@ -9,6 +9,7 @@ import {
   fetchIssueDetail,
   getIssueUrl,
   searchIssues,
+  searchIssuesWithChangelog,
   searchOpenIssuesWithSuggestions,
   type JiraIssue,
 } from "../lib/jira";
