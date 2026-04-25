@@ -24,6 +24,7 @@ import { Route as AppBoardRouteImport } from './routes/_app.board'
 import { Route as AppBacklogRouteImport } from './routes/_app.backlog'
 import { Route as ApiPublicJiraPollRouteImport } from './routes/api/public/jira-poll'
 import { Route as AppNotificationsKeyRouteImport } from './routes/_app.notifications.$key'
+import { Route as ApiPublicHooksPreventiveSchedulerRouteImport } from './routes/api/public/hooks/preventive-scheduler'
 
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
@@ -99,6 +100,12 @@ const AppNotificationsKeyRoute = AppNotificationsKeyRouteImport.update({
   path: '/notifications/$key',
   getParentRoute: () => AppRoute,
 } as any)
+const ApiPublicHooksPreventiveSchedulerRoute =
+  ApiPublicHooksPreventiveSchedulerRouteImport.update({
+    id: '/api/public/hooks/preventive-scheduler',
+    path: '/api/public/hooks/preventive-scheduler',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -115,6 +122,7 @@ export interface FileRoutesByFullPath {
   '/team': typeof AppTeamRoute
   '/notifications/$key': typeof AppNotificationsKeyRoute
   '/api/public/jira-poll': typeof ApiPublicJiraPollRoute
+  '/api/public/hooks/preventive-scheduler': typeof ApiPublicHooksPreventiveSchedulerRoute
 }
 export interface FileRoutesByTo {
   '/forgot-password': typeof ForgotPasswordRoute
@@ -131,6 +139,7 @@ export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
   '/notifications/$key': typeof AppNotificationsKeyRoute
   '/api/public/jira-poll': typeof ApiPublicJiraPollRoute
+  '/api/public/hooks/preventive-scheduler': typeof ApiPublicHooksPreventiveSchedulerRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -149,6 +158,7 @@ export interface FileRoutesById {
   '/_app/': typeof AppIndexRoute
   '/_app/notifications/$key': typeof AppNotificationsKeyRoute
   '/api/public/jira-poll': typeof ApiPublicJiraPollRoute
+  '/api/public/hooks/preventive-scheduler': typeof ApiPublicHooksPreventiveSchedulerRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -167,6 +177,7 @@ export interface FileRouteTypes {
     | '/team'
     | '/notifications/$key'
     | '/api/public/jira-poll'
+    | '/api/public/hooks/preventive-scheduler'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/forgot-password'
@@ -183,6 +194,7 @@ export interface FileRouteTypes {
     | '/'
     | '/notifications/$key'
     | '/api/public/jira-poll'
+    | '/api/public/hooks/preventive-scheduler'
   id:
     | '__root__'
     | '/_app'
@@ -200,6 +212,7 @@ export interface FileRouteTypes {
     | '/_app/'
     | '/_app/notifications/$key'
     | '/api/public/jira-poll'
+    | '/api/public/hooks/preventive-scheduler'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -208,6 +221,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   ApiPublicJiraPollRoute: typeof ApiPublicJiraPollRoute
+  ApiPublicHooksPreventiveSchedulerRoute: typeof ApiPublicHooksPreventiveSchedulerRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -317,6 +331,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppNotificationsKeyRouteImport
       parentRoute: typeof AppRoute
     }
+    '/api/public/hooks/preventive-scheduler': {
+      id: '/api/public/hooks/preventive-scheduler'
+      path: '/api/public/hooks/preventive-scheduler'
+      fullPath: '/api/public/hooks/preventive-scheduler'
+      preLoaderRoute: typeof ApiPublicHooksPreventiveSchedulerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -354,6 +375,8 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   ApiPublicJiraPollRoute: ApiPublicJiraPollRoute,
+  ApiPublicHooksPreventiveSchedulerRoute:
+    ApiPublicHooksPreventiveSchedulerRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
