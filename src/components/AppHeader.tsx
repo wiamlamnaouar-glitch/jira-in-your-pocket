@@ -1,8 +1,10 @@
 import { useState } from "react";
-import { LogOut, User as UserIcon, Shield, Wrench } from "lucide-react";
+import { LogOut, User as UserIcon, Shield, Wrench, Menu } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { NotificationBell } from "@/components/NotificationBell";
+import { SidebarContent } from "@/components/Sidebar";
 import { useAuth } from "@/lib/auth";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import {
   DropdownMenu,
   DropdownMenuContent,
