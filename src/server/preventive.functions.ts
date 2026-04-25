@@ -38,27 +38,8 @@ export type PreventivePlan = {
   created_at: string;
 };
 
-/** Compute the next run timestamp by advancing `from` by the configured period. */
-export function advanceNextRun(
-  from: Date,
-  p: { period_days: number; period_weeks: number; period_months: number; period_years: number },
-): Date {
-  const d = new Date(from.getTime());
-  if (p.period_years) d.setUTCFullYear(d.getUTCFullYear() + p.period_years);
-  if (p.period_months) d.setUTCMonth(d.getUTCMonth() + p.period_months);
-  if (p.period_weeks) d.setUTCDate(d.getUTCDate() + p.period_weeks * 7);
-  if (p.period_days) d.setUTCDate(d.getUTCDate() + p.period_days);
-  return d;
-}
+// (advanceNextRun & runDuePreventivePlans live in ./preventive.server.ts)
 
-function periodIsZero(p: {
-  period_days: number;
-  period_weeks: number;
-  period_months: number;
-  period_years: number;
-}) {
-  return !p.period_days && !p.period_weeks && !p.period_months && !p.period_years;
-}
 
 // ─── LIST ──────────────────────────────────────────────────────────────────
 
