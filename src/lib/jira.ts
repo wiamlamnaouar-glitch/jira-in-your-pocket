@@ -288,8 +288,7 @@ export async function searchIssuesWithChangelog(maxResults = 200): Promise<
       ...DEFAULT_SEARCH_FIELDS,
       "customfield_10453",
       "customfield_10376",
-      "customfield_10454",
-      "customfield_10232", // Reopened (select TRUE/FALSE)
+      "customfield_10454", // Reopened_CM3 — treated as boolean (TRUE → +1)
       "resolutiondate",
     ],
     expand: "changelog",

@@ -715,19 +715,25 @@ export const getTeamPerformance = createServerFn({ method: "GET" })
           entry.staleInProgress++;
         }
 
-        // Reopens — read from Jira custom field "Reopened" (customfield_10232),
-        // a select field with value "TRUE" or "FALSE". Increment by 1 per ticket
-        // where the value is TRUE for this technician.
-        const reopenedField = (
+        // Reopens — read from Jira custom field "Reopened_CM3" (customfield_10454).
+        // Treated as a BOOLEAN: if TRUE → +1 per ticket for this technician
+        // (NOT summed as a numeric counter).
+        const reopenedRaw = (
           issue.fields as unknown as {
-            customfield_10232?: { value?: string } | string | null;
+            customfield_10454?: { value?: string } | string | number | boolean | null;
           }
-        ).customfield_10232;
-        const reopenedValue =
-          typeof reopenedField === "string"
-            ? reopenedField
-            : reopenedField?.value ?? null;
-        if (reopenedValue && reopenedValue.toUpperCase() === "TRUE") {
+        ).customfield_10454;
+        let isReopened = false;
+        if (typeof reopenedRaw === "boolean") {
+          isReopened = reopenedRaw;
+        } else if (typeof reopenedRaw === "number") {
+          isReopened = reopenedRaw > 0;
+        } else if (typeof reopenedRaw === "string") {
+          isReopened = reopenedRaw.toUpperCase() === "TRUE";
+        } else if (reopenedRaw && typeof reopenedRaw === "object" && "value" in reopenedRaw) {
+          isReopened = String(reopenedRaw.value ?? "").toUpperCase() === "TRUE";
+        }
+        if (isReopened) {
           entry.reopens += 1;
         }
 
