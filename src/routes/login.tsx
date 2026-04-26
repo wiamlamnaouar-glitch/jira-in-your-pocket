@@ -167,6 +167,41 @@ function LoginPage() {
               />
             </div>
 
+
+            {mode === "signup" && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground px-1">
+                  Choose your role
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSignupRole("technician")}
+                    className={`flex flex-col items-center justify-center gap-1.5 h-20 rounded-lg border text-xs font-medium transition-all ${
+                      signupRole === "technician"
+                        ? "border-primary bg-primary/10 text-foreground ring-2 ring-primary/30"
+                        : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                    }`}
+                  >
+                    <Wrench className="size-4" />
+                    Maintenance Technician
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSignupRole("manager")}
+                    className={`flex flex-col items-center justify-center gap-1.5 h-20 rounded-lg border text-xs font-medium transition-all ${
+                      signupRole === "manager"
+                        ? "border-primary bg-primary/10 text-foreground ring-2 ring-primary/30"
+                        : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                    }`}
+                  >
+                    <Shield className="size-4" />
+                    Maintenance Manager
+                  </button>
+                </div>
+              </div>
+            )}
+
             {mode === "signin" && (
               <div className="text-right">
                 <Link to="/forgot-password" className="text-xs text-primary hover:underline">
