@@ -715,13 +715,20 @@ export const getTeamPerformance = createServerFn({ method: "GET" })
           entry.staleInProgress++;
         }
 
-        // Reopens — read from Jira custom field "Reopened_CM3" (customfield_10454).
-        // Falls back to 0 if the field is absent on the issue.
-        const reopenedCount =
-          (issue.fields as unknown as { customfield_10454?: number | null })
-            .customfield_10454 ?? 0;
-        if (typeof reopenedCount === "number" && reopenedCount > 0) {
-          entry.reopens += reopenedCount;
+        // Reopens — read from Jira custom field "Reopened" (customfield_10232),
+        // a select field with value "TRUE" or "FALSE". Increment by 1 per ticket
+        // where the value is TRUE for this technician.
+        const reopenedField = (
+          issue.fields as unknown as {
+            customfield_10232?: { value?: string } | string | null;
+          }
+        ).customfield_10232;
+        const reopenedValue =
+          typeof reopenedField === "string"
+            ? reopenedField
+            : reopenedField?.value ?? null;
+        if (reopenedValue && reopenedValue.toUpperCase() === "TRUE") {
+          entry.reopens += 1;
         }
 
         // SLA + resolution time on done tickets
