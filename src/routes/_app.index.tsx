@@ -119,8 +119,11 @@ function DashboardPage() {
             {isManager ? "Team Dashboard" : "My Dashboard"}
           </h1>
         </div>
-        <div className="text-xs text-muted-foreground">
-          {data.totalIssues} {isManager ? "tickets across the team" : "tickets assigned to you"} · synced live from Jira
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="text-xs text-muted-foreground">
+            {data.totalIssues} {isManager ? "tickets across the team" : "tickets assigned to you"} · synced live from Jira
+          </div>
+          <ExportAuditButton />
         </div>
       </header>
 
